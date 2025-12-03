@@ -43,7 +43,7 @@ manim -pql persistentcurrent_animation.py SuperconductingLoops
 ```
 To render the final version in 4k at 60fps:
 ```
-manim -pqk --fps 60 flux_tuning.py SuperconductingLoops
+manim -pqk --fps 60 persistentcurrent_animation.py SuperconductingLoops
 ```
 Output
 The output video will be saved in the ```media/videos/persistentcurrent_animation/``` directory created automatically where you ran the script.
