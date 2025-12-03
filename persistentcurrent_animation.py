@@ -148,7 +148,7 @@ class SuperconductingLoops(Scene):
                              stroke_width=2)
 
             # 4. Needle
-            s_angle = start_angles[i]
+            s_angle = zero_angle
             start_vec = np.array([np.cos(s_angle), np.sin(s_angle), 0])
             needle = Line(dial_pos, dial_pos + start_vec * (DIAL_RADIUS * 0.9), color=COLOR_NEEDLE, stroke_width=3)
             pivot = Dot(dial_pos, color=COLOR_TEXT, radius=0.05)
@@ -239,11 +239,20 @@ class SuperconductingLoops(Scene):
             bottom_branch_arrows.append(b_grp)
 
             self.add(t_grp, b_grp)
+        # Adding the startup behavior of needle tuning when bias comes on
+        needle_startup_anims = []
+        for i in range(3):
+            pivot = dials_grp[i][6].get_center()  # Index 6 is the pivot dot
+            angle_diff = start_angles[i] - zero_angle
+            needle_startup_anims.append(Rotate(dial_needles[i], angle=angle_diff, about_point=pivot))
 
         self.add(conn_arrows)
-        self.play(FadeIn(conn_arrows), *[FadeIn(g) for g in top_branch_arrows + bottom_branch_arrows],
-                  run_time=1.0 * TIME_SCALE)
-
+        self.play(
+            FadeIn(conn_arrows),
+            *[FadeIn(g) for g in top_branch_arrows + bottom_branch_arrows],
+            *needle_startup_anims,
+            run_time=1.0 * TIME_SCALE
+        )
         # -----------------------
         # 5. Phase 2: Laser Sweep
         # -----------------------
