@@ -7,7 +7,7 @@ A physics-accurate animation created with [Manim](https://www.manim.community/) 
 This visualization demonstrates the "heat-switch" technique used to tune flux in superconducting loops. The animation sequence depicts:
 1.  **Bias State:** External current flowing through the main bus.
 2.  **Laser Heating:** A focused thermal spot drives a specific wire branch normal (resistive), diverting current.
-3.  **Flux Trapping:** The wire cools (returns to superconducting state) while the bias is held, locking the flux quantum.
+3.  **Freeze-in:** The wire cools (returns to superconducting state) while the bias is held, and the cooled loop does not return to previous state.
 4.  **Persistent Current:** The external bias is removed, leaving a circulating persistent current loop and a "Tuned" state on the device readout.
 
 ## Installation
