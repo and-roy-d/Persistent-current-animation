@@ -82,10 +82,10 @@ class SuperconductingLoops(Scene):
         ARROW_SCALE_BASE = 0.20
 
         # Animation & Laser
-        LASER_RADIUS = 0.20
+        LASER_RADIUS = 0.15
         TIME_SCALE = 1.8
         LINEAR_SPEED = 0.7
-        LASER_TRAVEL_Y = -5.0
+        LASER_TRAVEL_Y = -2
 
         # --- CALCULATION HELPER ---
         def get_currents(ratio, i_bias_norm):
@@ -215,8 +215,8 @@ class SuperconductingLoops(Scene):
 
             # --- DENSITY SCALING ---
             # 8.0 multiplier for robust visual density on all segments
-            density = 3 * current_val
-            count = max(1, int(length * density))
+            density = 0.5 + 3 * current_val
+            count = int(length * density)
 
             scale = ARROW_SCALE_BASE
 
