@@ -86,7 +86,7 @@ class SuperconductingLoops(Scene):
         ARROW_SCALE_BASE = 0.18
 
         # Animation & Laser
-        LASER_RADIUS = 0.20
+        LASER_RADIUS = 0.15
         TIME_SCALE = 1.8
         LINEAR_SPEED = 0.7
         LASER_TRAVEL_Y = -1.0
