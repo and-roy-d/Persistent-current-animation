@@ -19,8 +19,14 @@ class SuperconductingLoops(Scene):
         COLOR_BIAS_ON = ORANGE
         COLOR_BIAS_OFF = GRAY
         COLOR_TUNED = GREEN
-        COLOR_IDLE = GRAY
         COLOR_DIAL_FILL = GRAY_A
+
+        # 538 Plot Style
+        PLOT_BG_COLOR = "#F0F0F0"
+        PLOT_GRID_COLOR = "#C0C0C0"
+        PLOT_LINE_COLOR = ORANGE
+        PLOT_MARKER_COLOR = RED
+        PLOT_AXIS_COLOR = BLACK
 
         # Fonts
         FONT_NAME = "Arial"
@@ -37,13 +43,11 @@ class SuperconductingLoops(Scene):
 
         # --- GEOMETRY VARIABLES ---
         BASE_LOOP_W = 1.6
-        WIRE_THICKNESS = 8
+        WIRE_THICKNESS = 6
 
         ARC_ANGLE_DEG = 330
         ref_arc_angle_rad = ARC_ANGLE_DEG * DEGREES
-
         DIAMETER_SPACING = 1.1
-        ENABLE_DIAMETER_SCALING = False
 
         ref_chord_angle = TAU - ref_arc_angle_rad
         base_radius = BASE_LOOP_W / (2 * np.sin(ref_chord_angle / 2))
@@ -77,26 +81,23 @@ class SuperconductingLoops(Scene):
         total_width_span = centers[-1][0] - centers[0][0]
         centers = [c + LEFT * (total_width_span / 2) for c in centers]
 
-        ARROW_STROKE = 6
+        ARROW_STROKE = 5
         ARROW_TIP_RATIO = 0.25
-        ARROW_SCALE_BASE = 0.20
+        ARROW_SCALE_BASE = 0.18
 
         # Animation & Laser
         LASER_RADIUS = 0.20
         TIME_SCALE = 1.8
         LINEAR_SPEED = 0.7
-        LASER_TRAVEL_Y = -5.0
+        LASER_TRAVEL_Y = -1.0
 
         # --- CALCULATION HELPER ---
         def get_currents(ratio, i_bias_norm):
             Ls = 1.0
             Ll = ratio
-            # Phase 1: Inductive Divider
             I_leak = i_bias_norm * (Ls / (Ll + Ls))
             I_short = i_bias_norm * (Ll / (Ll + Ls))
-            # Phase 2: Heat
             I_heat = i_bias_norm
-            # Phase 3: Trap
             I_final = i_bias_norm * (Ll / (Ll + Ls))
             return I_leak, I_short, I_heat, I_final
 
@@ -115,7 +116,7 @@ class SuperconductingLoops(Scene):
             wedge_configs.append((w_start + (w_end - w_start) / 2, w_end - w_start))
 
         # -----------------------
-        # 2. Geometry Setup
+        # 2. Geometry Setup (Loops)
         # -----------------------
         loops_grp = VGroup()
         connections_grp = VGroup()
@@ -124,7 +125,6 @@ class SuperconductingLoops(Scene):
 
         top_wires = []
         bottom_wires = []
-
         dial_needles = []
         status_texts = []
 
@@ -188,36 +188,104 @@ class SuperconductingLoops(Scene):
         connections_grp.add(input_wire, output_wire)
 
         bias_text = Text("BIAS OFF", font=FONT_NAME, font_size=FONT_SIZE, weight=BOLD, color=COLOR_BIAS_OFF)
-        bias_text.next_to(input_wire, DOWN, buff=2.5)
+        bias_text.next_to(input_wire, DOWN, buff=0.5).align_to(input_wire, LEFT)
 
         all_scene = VGroup(loops_grp, connections_grp, dials_grp, text_labels, bias_text)
-        if all_scene.height > config.frame_height * 0.85: all_scene.scale_to_fit_height(config.frame_height * 0.85)
+
+        # FIX: Scale down further (0.45) and reduce upward shift (UP * 1.8)
+        # to ensure tops of loops don't clip while staying above the plot.
+        if all_scene.height > config.frame_height * 0.45: all_scene.scale_to_fit_height(config.frame_height * 0.45)
         if all_scene.width > config.frame_width * 0.90: all_scene.scale_to_fit_width(config.frame_width * 0.90)
 
-        all_scene.move_to(ORIGIN).shift(DOWN * 0.5)
+        # Centering logic relative to remaining space
+        all_scene.move_to(ORIGIN).shift(UP * 1.8)
+
         self.add(all_scene)
 
         # -----------------------
-        # 3. Arrow Factory
+        # 3. 538 Style Plot Setup
+        # -----------------------
+        PLOT_WIDTH = 9
+        PLOT_HEIGHT = 1.8
+
+        # Plot container
+        plot_bg = Rectangle(width=PLOT_WIDTH, height=PLOT_HEIGHT, fill_color=PLOT_BG_COLOR, fill_opacity=1,
+                            stroke_width=0)
+
+        # Axes
+        X_MAX = 25
+        Y_MAX = 11
+
+        axes = Axes(
+            x_range=[0, X_MAX, 5],
+            y_range=[0, Y_MAX, 5],
+            x_length=PLOT_WIDTH - 1,
+            y_length=PLOT_HEIGHT - 0.5,
+            axis_config={"color": PLOT_AXIS_COLOR, "stroke_width": 2, "include_tip": False},
+            x_axis_config={"include_numbers": False, "tick_size": 0.05},
+            y_axis_config={
+                "include_numbers": True,
+                "font_size": 16,
+                "color": BLACK,
+                "label_direction": LEFT,
+                "tick_size": 0.05
+            },
+        )
+
+        # Custom Grid
+        grid_lines = VGroup()
+        for y_val in range(0, Y_MAX + 1, 5):
+            p1 = axes.c2p(0, y_val)
+            p2 = axes.c2p(X_MAX, y_val)
+            grid_lines.add(Line(p1, p2, stroke_width=1, stroke_color=PLOT_GRID_COLOR))
+
+        y_label = Text("Bias Current (arb.)", font=FONT_NAME, font_size=18, weight=BOLD, color=BLACK)
+        y_label.next_to(plot_bg, UP, aligned_edge=LEFT, buff=0.1).shift(RIGHT * 0.2)
+
+        x_label = Text("Time", font=FONT_NAME, font_size=18, weight=BOLD, color=BLACK)
+        x_label.next_to(plot_bg, DOWN, buff=0.1)
+
+        plot_content = VGroup(plot_bg, grid_lines, axes, y_label, x_label)
+
+        # Position: Top edge at -0.75
+        plot_content.move_to(ORIGIN)  # Reset
+        top_diff = plot_content.get_top()[1] - (-1.25)
+        plot_content.shift(DOWN * top_diff)
+
+        self.add(plot_content)
+
+        # Plot Trackers & Line
+        time_tracker = ValueTracker(0)
+        bias_tracker = ValueTracker(0)
+
+        # The "pen" for the plot
+        plot_dot = Dot(radius=0.08, color=PLOT_MARKER_COLOR).set_z_index(20)
+        plot_dot.move_to(axes.c2p(0, 0))
+
+        def update_plot_dot(mob):
+            mob.move_to(axes.c2p(time_tracker.get_value(), bias_tracker.get_value()))
+
+        plot_dot.add_updater(update_plot_dot)
+
+        plot_line = TracedPath(plot_dot.get_center, stroke_color=PLOT_LINE_COLOR, stroke_width=4).set_z_index(19)
+
+        self.add(plot_line, plot_dot)
+
+        # -----------------------
+        # 4. Arrow Factory
         # -----------------------
         def make_arrow_stream(line_geom, direction_vector=RIGHT, current_val=1.0):
             grp = VGroup()
-
-            # Robust length calculation
             if isinstance(line_geom, Line):
                 length = line_geom.get_length()
             elif isinstance(line_geom, Arc) or isinstance(line_geom, ArcBetweenPoints):
                 length = line_geom.get_arc_length()
             else:
-                length = 1.0  # Fallback
+                length = 1.0
 
             if current_val < 0.01: return grp
-
-            # --- DENSITY SCALING ---
-            # 8.0 multiplier for robust visual density on all segments
             density = 3 * current_val
             count = max(1, int(length * density))
-
             scale = ARROW_SCALE_BASE
 
             for i in range(count):
@@ -227,81 +295,72 @@ class SuperconductingLoops(Scene):
                 def update_flow(mob, dt, ln=line_geom, offset=i / count, total_len=length):
                     if not hasattr(mob, 'phase'): mob.phase = offset
                     mob.phase = (mob.phase + dt * LINEAR_SPEED / total_len) % 1
-
                     try:
                         pos = ln.point_from_proportion(mob.phase)
                         pos_plus = ln.point_from_proportion((mob.phase + 0.01) % 1)
                         angle = angle_of_vector(pos_plus - pos)
                         mob.move_to(pos).rotate(angle - mob.get_angle())
                     except:
-                        pass  # Safety for edge cases
+                        pass
 
                 a.add_updater(update_flow)
                 grp.add(a)
             return grp
 
         # -----------------------
-        # 4. SEQUENTIAL ANIMATION
+        # 5. SEQUENTIAL ANIMATION
         # -----------------------
+        tuned_loops_data = []
+        current_bus_arrows = VGroup()
+        current_loop_arrows = [{'top': VGroup(), 'bot': VGroup()} for _ in range(3)]
 
-        tuned_loops_data = []  # Stores {top, bot, val} for tuned loops
+        laser_start_x = top_wires[0].get_start()[0] - 2.0
 
         # Laser Setup
-        laser_start_x = top_wires[0].get_start()[0] - 2.0
         laser_spot = Dot(radius=LASER_RADIUS, color=COLOR_LASER).set_opacity(0)
         laser_spot.move_to([laser_start_x, LASER_TRAVEL_Y, 0])
         laser_spot.set_z_index(10)
         self.add(laser_spot)
 
-        self.wait(1.0)
-
-        # State tracking references to allow fading out previous arrows
-        current_bus_arrows = VGroup()
-        current_loop_arrows = [{'top': VGroup(), 'bot': VGroup()} for _ in range(3)]
+        # Initial Horizontal Wait (Draws line at 0)
+        self.play(time_tracker.animate.increment_value(1.0), run_time=1.0)
 
         for i in range(3):
-            # --- PHASE 1: TRANSITION BIAS ---
+            # =========================================
+            # PHASE 1: INSTANT BIAS TURN ON (Vertical)
+            # =========================================
             target_bias = BIAS_NORMALIZED[i]
+            target_bias_display = BIAS_AMPS_RAW[i]
 
             new_bias_text = Text("BIAS ON", font=FONT_NAME, font_size=FONT_SIZE, weight=BOLD, color=COLOR_BIAS_ON)
-            new_bias_text.move_to(bias_text.get_center())
+            new_bias_text.move_to(bias_text.get_center()).align_to(bias_text, LEFT)
 
-            # 1a. New Bus Arrows
+            # 1a. Prepare New Arrows
             new_bus_arrows = VGroup()
             for line in connections_grp:
                 new_bus_arrows.add(make_arrow_stream(line, current_val=target_bias))
 
-            # 1b. Update All Loop Arrows based on new Bias
+            # 1b. Prepare Loop Arrows & Needles
             new_loop_arrows_anims = []
-            new_loop_arrows_refs = []  # To replace current_loop_arrows
-
+            new_loop_arrows_refs = []
             needle_anims = []
 
             for k in range(3):
                 is_tuned = (k < i)
-
                 if is_tuned:
                     stored_val = tuned_loops_data[k]['val']
-
-                    # Top (Short) Current = Bias (Right) - Stored (Left)
                     net_top_val = target_bias - stored_val
-
                     if net_top_val >= 0:
                         new_top = make_arrow_stream(top_wires[k], RIGHT, current_val=net_top_val)
                     else:
                         rev_geom = Line(top_wires[k].get_end(), top_wires[k].get_start())
                         new_top = make_arrow_stream(rev_geom, LEFT, current_val=abs(net_top_val))
-
-                    # Bot (Loop) Current = Stored (Right) - FIXED
                     new_bot = current_loop_arrows[k]['bot']
-
                 else:
-                    # Untuned: Split Bias
                     k_leak, k_short, _, _ = get_currents(L_RATIOS[k], target_bias)
                     new_top = make_arrow_stream(top_wires[k], RIGHT, current_val=k_short)
                     new_bot = make_arrow_stream(bottom_wires[k], RIGHT, current_val=k_leak)
 
-                    # Needle: Moves to Leakage
                     n_pivot = dials_grp[k][6].get_center()
                     n_angle = current_to_angle(k_leak)
 
@@ -316,117 +375,135 @@ class SuperconductingLoops(Scene):
 
                 new_loop_arrows_refs.append({'top': new_top, 'bot': new_bot})
 
-                # Add fade transitions
                 if current_loop_arrows[k]['top'] != new_top:
                     new_loop_arrows_anims.append(FadeOut(current_loop_arrows[k]['top']))
                     new_loop_arrows_anims.append(FadeIn(new_top))
-
                 if current_loop_arrows[k]['bot'] != new_bot:
                     new_loop_arrows_anims.append(FadeOut(current_loop_arrows[k]['bot']))
                     new_loop_arrows_anims.append(FadeIn(new_bot))
 
+            # ANIMATION: Vertical Jump + State Change
+            # Time tracker is NOT incremented here, creating a vertical line.
+            jump_duration = 0.2
             self.play(
+                bias_tracker.animate.set_value(target_bias_display),
                 Transform(bias_text, new_bias_text),
                 FadeOut(current_bus_arrows),
                 FadeIn(new_bus_arrows),
                 *new_loop_arrows_anims,
                 *needle_anims,
-                run_time=0.8 * TIME_SCALE
+                run_time=jump_duration
             )
 
-            # Update References
             current_bus_arrows = new_bus_arrows
             current_loop_arrows = new_loop_arrows_refs
 
-            # --- 2. LASER HEAT ---
+            # =========================================
+            # PHASE 2: HORIZONTAL TIME FLOW (Physics)
+            # =========================================
+
             target_pos = top_wires[i].get_center()
 
+            # Laser moves to position (Time flows)
+            mv_dur_1 = 0.5 * TIME_SCALE
             self.play(
                 laser_spot.animate.set_opacity(1).move_to([target_pos[0], LASER_TRAVEL_Y, 0]),
-                run_time=0.5 * TIME_SCALE
+                time_tracker.animate.increment_value(mv_dur_1),
+                run_time=mv_dur_1
             )
+            mv_dur_2 = 0.3 * TIME_SCALE
             self.play(
                 laser_spot.animate.move_to(target_pos),
-                run_time=0.3 * TIME_SCALE
+                time_tracker.animate.increment_value(mv_dur_2),
+                run_time=mv_dur_2
             )
 
+            # Heater On (Time flows)
             _, _, i_heat, _ = get_currents(L_RATIOS[i], target_bias)
-
             full_bot_arrow = make_arrow_stream(bottom_wires[i], RIGHT, current_val=i_heat)
             angle_max = current_to_angle(i_heat)
-
             i_leak_curr, _, _, _ = get_currents(L_RATIOS[i], target_bias)
             angle_leak = current_to_angle(i_leak_curr)
-
             pivot = dials_grp[i][6].get_center()
 
+            heat_dur = 0.5 * TIME_SCALE
             self.play(
                 top_wires[i].animate.set_color(COLOR_HOT),
                 FadeOut(current_loop_arrows[i]['top']),
                 FadeOut(current_loop_arrows[i]['bot']),
                 FadeIn(full_bot_arrow),
                 Rotate(dial_needles[i], angle=(angle_max - angle_leak), about_point=pivot),
-                run_time=0.5 * TIME_SCALE
+                time_tracker.animate.increment_value(heat_dur),
+                run_time=heat_dur
             )
-
             current_loop_arrows[i]['bot'] = full_bot_arrow
 
-            self.wait(0.2 * TIME_SCALE)
-            self.play(top_wires[i].animate.set_color(COLOR_WIRE), run_time=0.3 * TIME_SCALE)
-
+            # Wait & Cool (Time flows)
+            cool_dur = 0.5 * TIME_SCALE
             self.play(
-                laser_spot.animate.move_to([target_pos[0], LASER_TRAVEL_Y, 0]),
-                run_time=0.3 * TIME_SCALE
+                top_wires[i].animate.set_color(COLOR_WIRE),
+                time_tracker.animate.increment_value(cool_dur),
+                run_time=cool_dur
             )
 
-            # --- PHASE 3: MARK AS TUNED ---
+            # Laser Retreat (Time flows)
+            ret_dur = 0.3 * TIME_SCALE
+            self.play(
+                laser_spot.animate.move_to([target_pos[0], LASER_TRAVEL_Y, 0]),
+                time_tracker.animate.increment_value(ret_dur),
+                run_time=ret_dur
+            )
+
+            # Mark as Tuned (Time flows)
             _, _, _, i_final_val = get_currents(L_RATIOS[i], target_bias)
+            tuned_loops_data.append({'val': i_final_val, 'max_angle': angle_max})
 
-            tuned_loops_data.append({
-                'val': i_final_val,
-                'max_angle': angle_max
-            })
+            tune_dur = 0.5 * TIME_SCALE
+            self.play(
+                status_texts[i].animate.set_opacity(1),
+                time_tracker.animate.increment_value(tune_dur),
+                run_time=tune_dur
+            )
 
-            self.play(status_texts[i].animate.set_opacity(1), run_time=0.5 * TIME_SCALE)
-
-        # --- END OF LOOP: ALL TUNED. TURN OFF BIAS. ---
-
+        # =========================================
+        # END: INSTANT BIAS TURN OFF (Vertical)
+        # =========================================
         off_text = Text("BIAS OFF", font=FONT_NAME, font_size=FONT_SIZE, weight=BOLD, color=COLOR_BIAS_OFF)
-        off_text.move_to(bias_text.get_center())
+        off_text.move_to(bias_text.get_center()).align_to(bias_text, LEFT)
 
         final_anims = []
         final_anims.append(FadeOut(current_bus_arrows))
 
         for k in range(3):
             stored_val = tuned_loops_data[k]['val']
-
             # Bot
             final_bot = make_arrow_stream(bottom_wires[k], RIGHT, current_val=stored_val)
             final_anims.append(FadeOut(current_loop_arrows[k]['bot']))
             final_anims.append(FadeIn(final_bot))
-
             # Top
             rev_geom = Line(top_wires[k].get_end(), top_wires[k].get_start())
             final_top = make_arrow_stream(rev_geom, LEFT, current_val=stored_val)
-
-            if k < 2:
-                final_anims.append(FadeOut(current_loop_arrows[k]['top']))
-
+            if k < 2: final_anims.append(FadeOut(current_loop_arrows[k]['top']))
             final_anims.append(FadeIn(final_top))
-
             # Needle Drop
             pivot = dials_grp[k][6].get_center()
             curr_a = tuned_loops_data[k]['max_angle']
             target_a = current_to_angle(stored_val)
-
             final_anims.append(Rotate(dial_needles[k], angle=(target_a - curr_a), about_point=pivot))
 
+        # ANIMATION: Vertical Drop + State Change
+        # Time tracker is NOT incremented here.
         self.play(
+            bias_tracker.animate.set_value(0),
             Transform(bias_text, off_text),
             *final_anims,
-            run_time=1.5 * TIME_SCALE
+            run_time=0.2
         )
 
         final_exit_x = top_wires[-1].get_end()[0] + 2.0
-        self.play(laser_spot.animate.move_to([final_exit_x, LASER_TRAVEL_Y, 0]).set_opacity(0), run_time=1.0)
-        self.wait(2.0)
+        self.play(
+            laser_spot.animate.move_to([final_exit_x, LASER_TRAVEL_Y, 0]).set_opacity(0),
+            time_tracker.animate.increment_value(2.0),
+            run_time=2.0
+        )
+        self.wait(1.0)
